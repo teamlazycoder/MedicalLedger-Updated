@@ -1,0 +1,14 @@
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/healthchain_db_dev
+    username: postgres
+    password: password
+
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    com.medical.demo: DEBUG
+    org.springframework.security: DEBUG
