@@ -1,109 +1,51 @@
 package com.medical.demo.controller;
-
-import com.medical.demo.dto.request.ConsentGrantRequest;
-import com.medical.demo.dto.response.ApiResponse;
-import com.medical.demo.dto.response.ConsentResponse;
-import com.medical.demo.dto.response.PatientResponse;
-import com.medical.demo.dto.response.RecordResponse;
-import com.medical.demo.model.ConsentPolicy;
-import com.medical.demo.model.Patient;
-import com.medical.demo.model.User;
-import com.medical.demo.repository.UserRepository;
-import com.medical.demo.service.consent.ConsentService;
-import com.medical.demo.service.patient.PatientService;
+import com.medical.demo.dto.request.*; import com.medical.demo.dto.response.*;
+import com.medical.demo.model.*; import com.medical.demo.repository.UserRepository;
+import com.medical.demo.service.consent.ConsentService; import com.medical.demo.service.patient.PatientService;
 import com.medical.demo.service.record.RecordService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.*; import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid; import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity; import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication; import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*; import java.util.List;
 
-import java.util.List;
-
-@RestController
-@RequestMapping("/api/v1/patients")
-@RequiredArgsConstructor
-@Tag(name = "Patient", description = "Patient management APIs")
+@RestController @RequestMapping("/api/v1/patients") @RequiredArgsConstructor
+@Tag(name="Patient",description="Patient management APIs")
 public class PatientController {
+    private final PatientService patientService; private final ConsentService consentService;
+    private final RecordService recordService; private final UserRepository userRepository;
 
-    private final PatientService patientService;
-    private final ConsentService consentService;
-    private final RecordService recordService;
-    private final UserRepository userRepository;
+    private User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if(auth!=null&&auth.isAuthenticated()&&!"anonymousUser".equals(auth.getName()))
+            return userRepository.findByEmail(auth.getName()).orElse(null);
+        return null;
+    }
 
-    @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('PATIENT', 'DOCTOR', 'ADMIN')")
-    @Operation(summary = "Get patient details")
+    @GetMapping("/{id}") @PreAuthorize("hasAnyRole('PATIENT','DOCTOR','ADMIN')")
     public ResponseEntity<ApiResponse<PatientResponse>> getPatient(@PathVariable Long id) {
-        PatientResponse response = patientService.getPatientDetails(id);
-        return ResponseEntity.ok(ApiResponse.success("Patient retrieved", response));
+        return ResponseEntity.ok(ApiResponse.success("Patient retrieved",patientService.getPatientDetails(id)));
     }
-
-    @PutMapping("/{id}")
-    @PreAuthorize("hasRole('PATIENT')")
-    @Operation(summary = "Update patient profile")
-    public ResponseEntity<ApiResponse<PatientResponse>> updatePatient(
-            @PathVariable Long id,
-            @RequestBody Patient patientDetails) {
-        Patient updatedPatient = patientService.updatePatient(id, patientDetails);
-        PatientResponse response = patientService.getPatientDetails(updatedPatient.getId());
-        return ResponseEntity.ok(ApiResponse.success("Patient updated successfully", response));
-    }
-
-    @GetMapping("/{id}/records")
-    @PreAuthorize("hasAnyRole('PATIENT', 'DOCTOR')")
-    @Operation(summary = "Get patient medical records")
+    @GetMapping("/{id}/records") @PreAuthorize("hasAnyRole('PATIENT','DOCTOR')")
     public ResponseEntity<ApiResponse<List<RecordResponse>>> getPatientRecords(@PathVariable Long id) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String email = auth.getName();
-        User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        List<RecordResponse> records = recordService.getPatientRecords(id, currentUser);
-        return ResponseEntity.ok(ApiResponse.success("Records retrieved", records));
+        User u = getCurrentUser();
+        return ResponseEntity.ok(ApiResponse.success("Records retrieved",recordService.getPatientRecords(id,u)));
     }
-
-    @GetMapping("/{id}/consents")
-    @PreAuthorize("hasRole('PATIENT')")
-    @Operation(summary = "Get patient consent policies")
+    @GetMapping("/{id}/consents") @PreAuthorize("hasRole('PATIENT')")
     public ResponseEntity<ApiResponse<List<ConsentResponse>>> getPatientConsents(@PathVariable Long id) {
-        List<ConsentResponse> consents = consentService.getPatientConsents(id);
-        return ResponseEntity.ok(ApiResponse.success("Consents retrieved", consents));
+        return ResponseEntity.ok(ApiResponse.success("Consents retrieved",consentService.getPatientConsents(id)));
     }
-
-    @PostMapping("/{id}/consents/grant")
-    @PreAuthorize("hasRole('PATIENT')")
-    @Operation(summary = "Grant consent to doctor")
-    public ResponseEntity<ApiResponse<ConsentResponse>> grantConsent(
-            @PathVariable Long id,
-            @Valid @RequestBody ConsentGrantRequest request) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String email = auth.getName();
-        User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        ConsentPolicy consentPolicy = consentService.grantConsent(id, request, currentUser);
-        ConsentResponse response = consentService.getConsentDetails(consentPolicy.getId());
-        return ResponseEntity.ok(ApiResponse.success("Consent granted successfully", response));
+    @PostMapping("/{id}/consents/grant") @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<ApiResponse<ConsentResponse>> grantConsent(@PathVariable Long id, @Valid @RequestBody ConsentGrantRequest request) {
+        User u = getCurrentUser();
+        ConsentPolicy cp = consentService.grantConsent(id,request,u);
+        if(cp==null) return ResponseEntity.badRequest().body(ApiResponse.error("Failed to grant consent"));
+        return ResponseEntity.ok(ApiResponse.success("Consent granted",consentService.getConsentDetails(cp.getId())));
     }
-
-    @PutMapping("/{patientId}/consents/{consentId}/revoke")
-    @PreAuthorize("hasRole('PATIENT')")
-    @Operation(summary = "Revoke consent")
-    public ResponseEntity<ApiResponse<ConsentResponse>> revokeConsent(
-            @PathVariable Long patientId,
-            @PathVariable Long consentId) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String email = auth.getName();
-        User currentUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        ConsentPolicy consentPolicy = consentService.revokeConsent(consentId, patientId, currentUser);
-        ConsentResponse response = consentService.getConsentDetails(consentPolicy.getId());
-        return ResponseEntity.ok(ApiResponse.success("Consent revoked successfully", response));
+    @PutMapping("/{patientId}/consents/{consentId}/revoke") @PreAuthorize("hasRole('PATIENT')")
+    public ResponseEntity<ApiResponse<ConsentResponse>> revokeConsent(@PathVariable Long patientId, @PathVariable Long consentId) {
+        User u = getCurrentUser();
+        ConsentPolicy cp = consentService.revokeConsent(consentId,patientId,u);
+        return ResponseEntity.ok(ApiResponse.success("Consent revoked",consentService.getConsentDetails(cp.getId())));
     }
 }

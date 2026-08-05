@@ -1,67 +1,60 @@
 package com.medical.demo.controller;
 
-import com.medical.demo.dto.response.ApiResponse;
-import com.medical.demo.dto.response.ConsentResponse;
-import com.medical.demo.dto.response.DoctorResponse;
-import com.medical.demo.dto.response.RecordResponse;
+import com.medical.demo.dto.response.*;
+import com.medical.demo.model.Doctor;
 import com.medical.demo.service.consent.ConsentService;
 import com.medical.demo.service.doctor.DoctorService;
 import com.medical.demo.service.record.RecordService;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/doctors")
 @RequiredArgsConstructor
-@Tag(name = "Doctor", description = "Doctor management APIs")
+@Tag(name="Doctor", description="Doctor management APIs")
 public class DoctorController {
-
     private final DoctorService doctorService;
     private final ConsentService consentService;
     private final RecordService recordService;
 
+    // Get doctor by DOCTOR ID (from doctors table)
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('DOCTOR', 'ADMIN')")
-    @Operation(summary = "Get doctor details")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
     public ResponseEntity<ApiResponse<DoctorResponse>> getDoctor(@PathVariable Long id) {
-        DoctorResponse response = doctorService.getDoctorDetails(id);
-        return ResponseEntity.ok(ApiResponse.success("Doctor retrieved", response));
+        return ResponseEntity.ok(ApiResponse.success("Doctor retrieved", doctorService.getDoctorDetails(id)));
+    }
+
+    // NEW: Get doctor by USER ID (from users table)
+    @GetMapping("/by-user/{userId}")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ResponseEntity<ApiResponse<DoctorResponse>> getDoctorByUserId(@PathVariable Long userId) {
+        Doctor doctor = doctorService.getDoctorByUserId(userId);
+        return ResponseEntity.ok(ApiResponse.success("Doctor retrieved", doctorService.getDoctorDetails(doctor.getId())));
     }
 
     @GetMapping("/search")
-    @Operation(summary = "Search doctors by name or specialty")
     public ResponseEntity<ApiResponse<List<DoctorResponse>>> searchDoctors(@RequestParam String q) {
-        List<DoctorResponse> doctors = doctorService.searchDoctors(q);
-        return ResponseEntity.ok(ApiResponse.success("Doctors found", doctors));
+        return ResponseEntity.ok(ApiResponse.success("Doctors found", doctorService.searchDoctors(q)));
     }
 
     @GetMapping("/specialty/{specialty}")
-    @Operation(summary = "Get doctors by specialty")
     public ResponseEntity<ApiResponse<List<DoctorResponse>>> getDoctorsBySpecialty(@PathVariable String specialty) {
-        List<DoctorResponse> doctors = doctorService.getDoctorsBySpecialty(specialty);
-        return ResponseEntity.ok(ApiResponse.success("Doctors retrieved", doctors));
+        return ResponseEntity.ok(ApiResponse.success("Doctors retrieved", doctorService.getDoctorsBySpecialty(specialty)));
     }
 
     @GetMapping("/{id}/consents")
     @PreAuthorize("hasRole('DOCTOR')")
-    @Operation(summary = "Get doctor consent policies")
     public ResponseEntity<ApiResponse<List<ConsentResponse>>> getDoctorConsents(@PathVariable Long id) {
-        List<ConsentResponse> consents = consentService.getDoctorConsents(id);
-        return ResponseEntity.ok(ApiResponse.success("Consents retrieved", consents));
+        return ResponseEntity.ok(ApiResponse.success("Consents retrieved", consentService.getDoctorConsents(id)));
     }
 
-    //Creating Issue
     @GetMapping("/{id}/records")
     @PreAuthorize("hasRole('DOCTOR')")
-    @Operation(summary = "Get records uploaded by doctor")
     public ResponseEntity<ApiResponse<List<RecordResponse>>> getDoctorRecords(@PathVariable Long id) {
-        List<RecordResponse> records = recordService.getDoctorRecords(id);
-        return ResponseEntity.ok(ApiResponse.success("Records retrieved", records));
+        return ResponseEntity.ok(ApiResponse.success("Records retrieved", recordService.getDoctorRecords(id)));
     }
 }

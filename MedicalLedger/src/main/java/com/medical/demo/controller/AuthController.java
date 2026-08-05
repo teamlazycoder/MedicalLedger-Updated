@@ -53,12 +53,18 @@ public class AuthController {
         authService.logout(token);
         return ResponseEntity.ok(ApiResponse.success("Logged out successfully", null));
     }
-
     @GetMapping("/me")
     @Operation(summary = "Get current user")
     public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName(); // This returns email now
+
+        // Check if user is authenticated
+        if (authentication == null || !authentication.isAuthenticated() ||
+                "anonymousUser".equals(authentication.getName())) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Not authenticated"));
+        }
+
+        String email = authentication.getName();
         UserResponse response = authService.getCurrentUser(email);
         return ResponseEntity.ok(ApiResponse.success("User details retrieved", response));
     }

@@ -3,12 +3,10 @@ package com.medical.demo.service.patient;
 import com.medical.demo.dto.response.PatientResponse;
 import com.medical.demo.exception.ResourceNotFoundException;
 import com.medical.demo.model.Patient;
-import com.medical.demo.model.User;
 import com.medical.demo.repository.PatientRepository;
 import com.medical.demo.repository.MedicalRecordRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +28,7 @@ public class PatientServiceImpl implements PatientService {
     }
 
     @Override
-    @Cacheable(value = "patientDetails", key = "#id")
+    // REMOVED @Cacheable - this was causing Redis errors
     public PatientResponse getPatientDetails(Long id) {
         Patient patient = getPatientById(id);
         return mapToPatientResponse(patient);
@@ -46,7 +44,6 @@ public class PatientServiceImpl implements PatientService {
     @Transactional
     public Patient updatePatient(Long id, Patient patientDetails) {
         Patient patient = getPatientById(id);
-
         patient.setFirstName(patientDetails.getFirstName());
         patient.setLastName(patientDetails.getLastName());
         patient.setDateOfBirth(patientDetails.getDateOfBirth());
@@ -56,8 +53,6 @@ public class PatientServiceImpl implements PatientService {
         patient.setAddress(patientDetails.getAddress());
         patient.setAllergies(patientDetails.getAllergies());
         patient.setChronicConditions(patientDetails.getChronicConditions());
-
-        log.info("Updated patient profile for id: {}", id);
         return patientRepository.save(patient);
     }
 
@@ -78,10 +73,8 @@ public class PatientServiceImpl implements PatientService {
     @Transactional
     public void deletePatient(Long id) {
         Patient patient = getPatientById(id);
-        User user = patient.getUser();
-        user.setIsActive(false);
+        patient.getUser().setIsActive(false);
         patientRepository.delete(patient);
-        log.info("Deleted patient with id: {}", id);
     }
 
     private PatientResponse mapToPatientResponse(Patient patient) {

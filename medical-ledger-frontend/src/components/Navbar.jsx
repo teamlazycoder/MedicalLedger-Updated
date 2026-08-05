@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { HeartIcon, LogoutIcon } from './Icons';
+import { LogoutIcon } from './Icons';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -13,31 +13,35 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      <Link to="/" className="navbar-brand">
-        <HeartIcon />
-        HealthChain
-      </Link>
+      <Link to="/" className="navbar-brand">HealthChain</Link>
       <div className="navbar-links">
         {isAuthenticated ? (
           <>
             <Link to="/dashboard">Dashboard</Link>
             <Link to="/profile">Profile</Link>
-            {(user?.role === 'PATIENT' || user?.role === 'DOCTOR') && (
+
+            {user?.role === 'PATIENT' && (
               <>
-                <Link to="/records">Records</Link>
+                <Link to="/records">My Records</Link>
                 <Link to="/consents">Consents</Link>
+                <Link to="/doctors">Find Doctors</Link>
               </>
             )}
-            {user?.role === 'PATIENT' && <Link to="/doctors">Doctors</Link>}
+
+            {user?.role === 'DOCTOR' && (
+              <Link to="/doctor">Doctor Panel</Link>
+            )}
+
             {user?.role === 'ADMIN' && (
               <>
                 <Link to="/admin">Admin</Link>
-                <Link to="/audit">Audit</Link>
+                <Link to="/audit">Audit Logs</Link>
               </>
             )}
+
             <Link to="/blockchain">Verify</Link>
-            <button onClick={handleLogout} className="nav-logout" style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '10px 16px', borderRadius: '8px', fontSize: '0.875em', fontWeight: 500 }}>
-              <LogoutIcon />
+            <button onClick={handleLogout} className="nav-logout">
+              <LogoutIcon width="16" height="16" /> Sign Out
             </button>
           </>
         ) : (

@@ -34,21 +34,22 @@ function App() {
           <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" />} />
           <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/dashboard" />} />
 
-          {/* Protected Routes */}
+          {/* Protected Routes - All Roles */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/blockchain" element={<ProtectedRoute><BlockchainVerification /></ProtectedRoute>} />
 
           {/* Patient Routes */}
           <Route path="/records" element={<ProtectedRoute><PatientRecords /></ProtectedRoute>} />
           <Route path="/consents" element={<ProtectedRoute><PatientConsents /></ProtectedRoute>} />
           <Route path="/doctors" element={<ProtectedRoute><Doctors /></ProtectedRoute>} />
 
+          {/* Doctor Routes - Single Dashboard for everything */}
+          <Route path="/doctor" element={<ProtectedRoute role="DOCTOR"><DoctorDashboard /></ProtectedRoute>} />
+
           {/* Admin Routes */}
           <Route path="/admin" element={<ProtectedRoute role="ADMIN"><AdminDashboard /></ProtectedRoute>} />
           <Route path="/audit" element={<ProtectedRoute><AuditLogs /></ProtectedRoute>} />
-
-          {/* Blockchain */}
-          <Route path="/blockchain" element={<ProtectedRoute><BlockchainVerification /></ProtectedRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

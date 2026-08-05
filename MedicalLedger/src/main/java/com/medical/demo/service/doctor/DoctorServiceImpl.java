@@ -7,7 +7,6 @@ import com.medical.demo.repository.ConsentPolicyRepository;
 import com.medical.demo.repository.DoctorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +28,7 @@ public class DoctorServiceImpl implements DoctorService {
     }
 
     @Override
-    @Cacheable(value = "doctorDetails", key = "#id")
+    // REMOVED @Cacheable
     public DoctorResponse getDoctorDetails(Long id) {
         Doctor doctor = getDoctorById(id);
         return mapToDoctorResponse(doctor);
@@ -45,7 +44,6 @@ public class DoctorServiceImpl implements DoctorService {
     @Transactional
     public Doctor updateDoctor(Long id, Doctor doctorDetails) {
         Doctor doctor = getDoctorById(id);
-
         doctor.setFirstName(doctorDetails.getFirstName());
         doctor.setLastName(doctorDetails.getLastName());
         doctor.setSpecialty(doctorDetails.getSpecialty());
@@ -54,8 +52,6 @@ public class DoctorServiceImpl implements DoctorService {
         doctor.setYearsOfExperience(doctorDetails.getYearsOfExperience());
         doctor.setQualifications(doctorDetails.getQualifications());
         doctor.setIsAvailable(doctorDetails.getIsAvailable());
-
-        log.info("Updated doctor profile for id: {}", id);
         return doctorRepository.save(doctor);
     }
 
