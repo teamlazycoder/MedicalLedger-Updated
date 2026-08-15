@@ -26,7 +26,7 @@ public class RecordResponse {
     private String description;
     private String diagnosis;
     private String treatment;
-    private Integer accessCount;
+    private Long accessCount;  // CHANGED: Integer to Long
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

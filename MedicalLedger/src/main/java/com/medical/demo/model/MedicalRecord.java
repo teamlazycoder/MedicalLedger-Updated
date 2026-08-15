@@ -56,7 +56,7 @@ public class MedicalRecord extends BaseEntity {
     private String treatment;
 
     @Column(name = "access_count")
-    private Integer accessCount = 0;
+    private Long accessCount = 0L;  // Long type
 
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;

@@ -7,17 +7,18 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="MedicalLedger (1)" />
+        <module name="MedicalLedger (2)" />
         <module name="demo" />
         <module name="MedicalLedger" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="MedicalLedger (1)" target="1.5" />
-    </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="MedicalLedger" options="-parameters" />
+      <module name="MedicalLedger (1)" options="-parameters" />
+      <module name="MedicalLedger (2)" options="-parameters" />
       <module name="demo" options="-parameters" />
     </option>
   </component>

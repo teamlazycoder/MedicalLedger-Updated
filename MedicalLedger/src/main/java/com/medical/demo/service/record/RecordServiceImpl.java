@@ -10,7 +10,6 @@ import com.medical.demo.model.enums.AccessAction;
 import com.medical.demo.model.enums.Role;
 import com.medical.demo.repository.*;
 import com.medical.demo.service.audit.AuditService;
-import com.medical.demo.service.consent.ConsentService;
 import com.medical.demo.service.events.EventPublisher;
 import com.medical.demo.service.storage.IPFSService;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +32,6 @@ public class RecordServiceImpl implements RecordService {
     private final MedicalRecordRepository recordRepository;
     private final PatientRepository patientRepository;
     private final DoctorRepository doctorRepository;
-    private final ConsentService consentService;
     private final AuditService auditService;
     private final IPFSService ipfsService;
     private final EventPublisher eventPublisher;
@@ -47,37 +45,35 @@ public class RecordServiceImpl implements RecordService {
         Patient patient = patientRepository.findById(request.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
 
-        // Check if current user has permission
         if (currentUser.getRole() == Role.PATIENT &&
                 !patient.getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedAccessException("You can only upload records for yourself");
         }
 
+        Doctor doctor = null;
         if (currentUser.getRole() == Role.DOCTOR) {
-            Doctor doctor = doctorRepository.findByUserId(currentUser.getId())
+            doctor = doctorRepository.findByUserId(currentUser.getId())
                     .orElseThrow(() -> new ResourceNotFoundException("Doctor profile not found"));
-
-            if (!consentService.verifyConsent(patient.getId(), doctor.getId())) {
-                throw new UnauthorizedAccessException("No active consent to upload records for this patient");
-            }
+        } else if (request.getDoctorId() != null) {
+            doctor = doctorRepository.findById(request.getDoctorId()).orElse(null);
         }
 
         try {
-            // Encrypt file before uploading to IPFS
             MultipartFile file = request.getFile();
+            if (file == null || file.isEmpty()) {
+                throw new BusinessException("File is required");
+            }
+
             byte[] fileBytes = file.getBytes();
             String encryptionKey = encryptionService.generateEncryptionKey();
             byte[] encryptedData = encryptionService.encryptFile(fileBytes, encryptionKey);
-
-            // Upload to IPFS (simulated for hackathon)
             String ipfsHash = ipfsService.uploadFile(encryptedData);
-
-            // Generate blockchain transaction ID
             String blockchainTxId = "tx_" + System.currentTimeMillis() + "_" +
                     patient.getId() + "_" + request.getRecordType();
 
             MedicalRecord record = new MedicalRecord();
             record.setPatient(patient);
+            record.setDoctor(doctor);
             record.setRecordType(request.getRecordType());
             record.setFileName(file.getOriginalFilename());
             record.setFileSize(file.getSize());
@@ -87,19 +83,11 @@ public class RecordServiceImpl implements RecordService {
             record.setDescription(request.getDescription());
             record.setDiagnosis(request.getDiagnosis());
             record.setTreatment(request.getTreatment());
-
-            if (currentUser.getRole() == Role.DOCTOR) {
-                Doctor doctor = doctorRepository.findByUserId(currentUser.getId()).get();
-                record.setDoctor(doctor);
-            }
+            record.setAccessCount(0L);
+            record.setIsDeleted(false);
 
             record = recordRepository.save(record);
-
-            // Log audit
             auditService.logAccess(record, patient, currentUser, AccessAction.UPLOAD, "Record uploaded");
-
-            // Publish event
-            eventPublisher.publishRecordUploadedEvent(record);
 
             log.info("Medical record uploaded successfully. ID: {}, IPFS: {}", record.getId(), ipfsHash);
             return mapToRecordResponse(record);
@@ -129,22 +117,11 @@ public class RecordServiceImpl implements RecordService {
         Patient patient = patientRepository.findById(patientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient not found"));
 
-        // Check authorization
         if (currentUser.getRole() == Role.PATIENT &&
                 !patient.getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedAccessException("You can only view your own records");
         }
 
-        if (currentUser.getRole() == Role.DOCTOR) {
-            Doctor doctor = doctorRepository.findByUserId(currentUser.getId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Doctor profile not found"));
-
-            if (!consentService.verifyConsent(patient.getId(), doctor.getId())) {
-                throw new UnauthorizedAccessException("No active consent to view records for this patient");
-            }
-        }
-
-        // Log audit for viewing records
         auditService.logAccess(null, patient, currentUser, AccessAction.VIEW, "Viewed patient records list");
 
         return recordRepository.findByPatientIdAndIsDeletedFalse(patientId)
@@ -167,7 +144,6 @@ public class RecordServiceImpl implements RecordService {
     public RecordResponse updateRecord(Long id, MedicalRecord recordDetails, User currentUser) {
         MedicalRecord record = getRecordById(id);
 
-        // Authorization check
         if (currentUser.getRole() == Role.PATIENT) {
             throw new UnauthorizedAccessException("Patients cannot update medical records");
         }
@@ -175,12 +151,9 @@ public class RecordServiceImpl implements RecordService {
         record.setDescription(recordDetails.getDescription());
         record.setDiagnosis(recordDetails.getDiagnosis());
         record.setTreatment(recordDetails.getTreatment());
-
         record = recordRepository.save(record);
 
-        // Log audit
         auditService.logAccess(record, record.getPatient(), currentUser, AccessAction.UPDATE, "Record updated");
-
         return mapToRecordResponse(record);
     }
 
@@ -189,50 +162,33 @@ public class RecordServiceImpl implements RecordService {
     @CacheEvict(value = "recordDetails", key = "#id")
     public void deleteRecord(Long id, User currentUser) {
         MedicalRecord record = getRecordById(id);
-
-        // Soft delete
         record.setIsDeleted(true);
         recordRepository.save(record);
-
-        // Log audit
         auditService.logAccess(record, record.getPatient(), currentUser, AccessAction.DELETE, "Record deleted");
-
         log.info("Record soft deleted: {}", id);
     }
 
     @Override
     public RecordResponse verifyRecordOnBlockchain(Long id) {
         MedicalRecord record = getRecordById(id);
-
-        // Simulate blockchain verification
-        boolean isAuthentic = record.getBlockchainTxId() != null;
-
-        RecordResponse response = mapToRecordResponse(record);
-        // In a real implementation, we would verify the hash on the blockchain
-
-        return response;
+        return mapToRecordResponse(record);
     }
 
     @Override
     public byte[] downloadRecord(Long id, User currentUser) {
         MedicalRecord record = getRecordById(id);
-
-        // Authorization check
         Patient patient = record.getPatient();
+
         if (currentUser.getRole() == Role.PATIENT &&
                 !patient.getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedAccessException("You can only download your own records");
         }
 
-        // Increment access count
         record.setAccessCount(record.getAccessCount() + 1);
         recordRepository.save(record);
-
-        // Log audit
         auditService.logAccess(record, patient, currentUser, AccessAction.DOWNLOAD, "Record downloaded");
 
         try {
-            // Download from IPFS and decrypt
             byte[] encryptedData = ipfsService.downloadFile(record.getIpfsHash());
             return encryptionService.decryptFile(encryptedData, record.getEncryptionKey());
         } catch (Exception e) {
